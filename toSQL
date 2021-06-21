@@ -1,0 +1,77 @@
+const categories = toObjects(`
+                  id                  | order |       name       |           createdAt           
+--------------------------------------+-------+------------------+-------------------------------
+ f07e0de2-b5ef-4e6b-a759-61ba7d6a34b4 |     1 | Team Composition | 2021-04-21 16:41:38.373709+00
+ 9bae01d9-2e24-4d2b-950a-998fac80a36e |     2 | Problem & Vision | 2021-04-21 16:41:38.495161+00
+ a5d6f96a-65e9-4682-ac25-7db70b476910 |     3 | Value Prop       | 2021-04-21 16:41:38.505847+00
+ 3f333a26-8192-47b9-95bb-fb2adafe5d31 |     4 | Product/Service  | 2021-04-21 16:41:38.509114+00
+ c93ad04e-3572-45a0-b85d-f68bcf7a2c35 |     5 | Financial Model  | 2021-04-21 16:41:38.512601+00
+ 800ffa93-e5e6-48b4-baf3-392a8d9a159f |     6 | Market           | 2021-04-21 16:41:38.51734+00
+ 4e5e2e34-5ce4-441b-9613-9ba2b62436ab |     7 | Sustainability   | 2021-04-21 16:41:38.523068+00
+ 144864a7-49e0-4e25-99c7-670c819e4f3a |     8 | Operations       | 2021-04-21 16:41:38.526564+00
+ f0e9148b-5090-4672-b588-131b3cc5320b |     9 | Sales            | 2021-04-21 16:41:38.530579+00
+ 375cb4f2-8a78-4f58-98c5-40cc040d6a54 |    10 | Risk & Legal     | 2021-04-21 16:41:38.533505+00
+ `);
+
+ const levels = toObjects(`
+                   id                  | level |                name                |           createdAt           
+--------------------------------------+-------+------------------------------------+-------------------------------
+ cbdfcbde-5ffc-4921-84fa-09e878ea44f5 |     9 | Profitable & Growing               | 2021-04-21 16:54:24.757248+00
+ c81bb962-d2a9-4ac3-a676-321036930cfc |     8 | Scaling up                         | 2021-04-21 16:54:24.764936+00
+ 89055311-35d3-47e9-a78d-51704d954b56 |     7 | Product-Market Fit                 | 2021-04-21 16:54:24.768024+00
+ 9a571253-d7cb-4a0e-b1c6-ae01b3381c54 |     6 | Go To Market                       | 2021-04-21 16:54:24.770818+00
+ 41030df4-aef1-413f-9838-2e4af39c0885 |     5 | Productization & Preparing to Sell | 2021-04-21 16:54:24.77547+00
+ a54a548f-ef78-4be8-9d81-fa873be80820 |     4 | Business Validation                | 2021-04-21 16:54:24.778792+00
+ cb3f2892-662c-4f43-b958-b9c3fb15b27b |     3 | Solution Validation                | 2021-04-21 16:54:24.782037+00
+ 525764b5-046d-449b-9b5b-5719814c3fb5 |     2 | Problem Validation                 | 2021-04-21 16:54:24.792028+00
+ b00f602b-2376-4983-899d-d4c22411ee4f |     1 | Exploration Formation              | 2021-04-21 16:54:24.796596+00
+ `);
+
+function toObjects(sqlDump) {
+  var asArray = sqlDump.split("\n").filter(s => s.trim().length > 0).map(s => s.split("|").map(s => s.trim()))
+  var columns = asArray[0];
+  var objects = []
+  if (!(asArray[1][0].match("^[\-\+]+$") && asArray[1].length == 1)) throw new Error("Second row (" + asArray[1] + ") should be delimiter row (----+----+--------- etc.).");
+  for (var i = 2; i < asArray.length; i++) {
+    if (asArray[i].length != columns.length) throw new Error("Wrong number of columns on row " + i);
+    var object = {};
+    for (var col = 0; col < columns.length; col++) {
+      object[columns[col]] = asArray[i][col];
+    }
+    objects.push(object);
+  }
+  return objects;
+}
+
+/*
+
+*/
+
+function myFunction() {
+  var sheet = SpreadsheetApp.openByUrl("https://docs.google.com/spreadsheets/d/1aNL9XqCu3ML8jjm8kG1sDR2Ay9RTMV8khJ8O_QYeOco/edit#gid=0");
+  var range = sheet.getRange("A2:W11");
+
+
+  var SQL = [];
+
+  categories.forEach(category => {
+    var rangeColumn = 2 + category.order * 2;
+    var catName = range.getCell(1, rangeColumn).getValue();
+    if (category.name != catName) throw new Error(`Category names not matching sheet: ${catName}, sql: ${category.name}`);
+
+    levels.forEach(level => {
+      var rangeRow = (9 - level.level) + 2;
+      var levelName = range.getCell(rangeRow, 2).getValue().replace("\n","");
+      if (level.name != levelName) throw new Error(`Level names not matching sheet: ${levelName}, sql: ${level.name}`);
+      
+      var cell = range.getCell(rangeRow, rangeColumn + 1);
+      var name = cell.getValue().replace("'","''");
+      var description = cell.getNote().replace("'","''");
+      var metadata = "{}";
+      SQL.push(`insert into "scale"."maturityCategoryDescription" ("maturityCategoryId", "maturityLevelId", "name", "description", "metadata") values ('${category.id}','${level.id}','${name}','${description}','${metadata}');`);
+    });
+
+  });
+  SQL.forEach(s => Logger.log(s));
+  Logger.log("TOTAL NUMBER OF DESCRIPTIONS: " + SQL.length)
+}
